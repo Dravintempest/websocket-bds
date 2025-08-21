@@ -120,13 +120,8 @@ const question = (text) => {
 };
 
 const progressBar = async (text = "Loading", total = 20, delay = 100) => {
-  for (let i = 0; i <= total; i++) {
-    const percent = Math.floor((i / total) * 100);
-    const filled = "█".repeat(i);
-    const empty = "░".repeat(total - i);
-    process.stdout.write(`\r${chalk.yellow(`[${percent}%]`)} ${chalk.cyan(text)}: ${chalk.green(filled)}${chalk.gray(empty)}`);
-    await sleep(delay);
-  }
+  process.stdout.write(chalk.hex('#FFA500')(`\r[⌛] ${chalk.cyan(text)}...`));
+  await sleep(total * delay);
   process.stdout.write(chalk.green(" ✓\n"));
 };
 
@@ -180,7 +175,7 @@ const login = async () => {
     
     if (username === VALID_USERNAME && password === VALID_PASSWORD) {
       console.log(chalk.green('\n[✓] Login berhasil!'));
-      await progressBar("Mengakses tools", 15, 100);
+      await progressBar("Mengakses tools", 15);
       return true;
     } else {
       attempts++;
@@ -207,6 +202,8 @@ const startWebSocketServer = () => {
     const pending = new Map();
 
     const sendCommand = (cmd) => {
+      if (!isRunning) return;
+      
       const requestId = `cmd-${Date.now()}-${currentIndex}`;
       const packet = {
         header: {
@@ -222,24 +219,36 @@ const startWebSocketServer = () => {
         }
       };
       
-      ws.send(JSON.stringify(packet));
-      pending.set(requestId, cmd);
-      
-      console.log(
-        `📤 ${chalk.cyan(`[${currentIndex + 1}/${commands.length}]`)} ` +
-        chalk.green(cmd.substring(0, 50) + (cmd.length > 50 ? "..." : ""))
-      );
+      try {
+        ws.send(JSON.stringify(packet));
+        pending.set(requestId, cmd);
+        
+        console.log(
+          `📤 ${chalk.cyan(`[${currentIndex + 1}/${commands.length}]`)} ` +
+          chalk.green(cmd.substring(0, 50) + (cmd.length > 50 ? "..." : ""))
+        );
+      } catch (err) {
+        // Jika error mengirim, stop execution
+        isRunning = false;
+      }
     };
 
     const executeCommands = async () => {
       for (let i = 0; i < commands.length && isRunning; i++) {
         sendCommand(commands[i]);
         currentIndex = i;
-        await sleep(100); // Delay kecil antara perintah
+        await sleep(100);
+        
+        // Cek jika koneksi masih aktif
+        if (ws.readyState !== WebSocket.OPEN) {
+          isRunning = false;
+          break;
+        }
       }
 
       if (isRunning) {
-        console.log(chalk.yellow('\n🔄 Raid selesai, menunggu koneksi terputus...'));
+        console.log(chalk.yellow('\n✅ Raid selesai! Server/world masih aktif.'));
+        console.log(chalk.cyan('⏳ Menunggu server/world dimatikan...'));
       }
     };
 
@@ -248,7 +257,7 @@ const startWebSocketServer = () => {
         const data = JSON.parse(msg);
         if (data.header.messagePurpose === "commandResponse") {
           const { requestId } = data.header;
-          const { statusCode, statusMessage } = data.body;
+          const { statusCode } = data.body;
           const cmd = pending.get(requestId);
           if (!cmd) return;
 
@@ -269,15 +278,17 @@ const startWebSocketServer = () => {
 
     ws.on('close', () => {
       console.log(chalk.red('\n❌ Koneksi terputus - Server/World dimatikan'));
-      console.log(chalk.green('✅ Raid berhasil dilakukan!'));
+      console.log(chalk.green('🎉 Raid berhasil dilakukan!'));
       isConnected = false;
       isRunning = false;
-      wss.close();
-      process.exit(0);
+      setTimeout(() => {
+        wss.close();
+        process.exit(0);
+      }, 2000);
     });
 
     ws.on('error', (err) => {
-      console.error('⚠️ Error:', err);
+      console.log(chalk.red('\n⚠️ Error koneksi:'), err.message);
       isRunning = false;
     });
   });
@@ -290,6 +301,13 @@ const startWebSocketServer = () => {
   console.log(chalk.cyan('📋 Perintah koneksi telah disalin ke clipboard:'));
   console.log(chalk.yellow(`   ${connectCommand}`));
   console.log(chalk.cyan('\n⏳ Menunggu koneksi dari Minecraft...'));
+  
+  // Handle server shutdown
+  process.on('SIGINT', () => {
+    console.log(chalk.red('\n\n⚠️  Server dihentikan manual'));
+    wss.close();
+    process.exit(0);
+  });
 };
 
 // Fungsi utama
@@ -298,7 +316,7 @@ const main = async () => {
   const isLoggedIn = await login();
   
   if (isLoggedIn) {
-    await progressBar("Memulai Server Raid", 25, 80);
+    await progressBar("Memulai Server Raid", 20);
     startWebSocketServer();
   }
 };
