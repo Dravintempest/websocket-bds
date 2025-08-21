@@ -11,7 +11,7 @@ const DELAY_BETWEEN_COMMANDS = 0;
 const DELAY_BETWEEN_LOOPS = 0;
 
 // Kredensial login
-const VALID_USERNAME = "Dravin";
+const VALID_USERNAME = "dravin";
 const VALID_PASSWORD = "dravinzx";
 
 // Daftar perintah Minecraft
@@ -163,7 +163,7 @@ const typeEffect = async (text, delay = 20) => {
 
 const showBanner = async () => {
   console.clear();
-  const banner = figlet.textSync("DRAVIN RAID", { font: "ANSI Shadow" });
+  const banner = figlet.textSync("DRAVIN", { font: "ANSI Shadow" });
   console.log(gradient.instagram.multiline(banner));
   await typeEffect(chalk.magenta("[⚙️] Minecraft Raid System - BY DRAVIN"));
   await animasiGaris();
