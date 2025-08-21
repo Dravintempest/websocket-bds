@@ -3,15 +3,14 @@ const chalk = require("chalk");
 const figlet = require("figlet");
 const gradient = require("gradient-string");
 const readline = require("readline");
+const { exec } = require('child_process');
 
 // Konfigurasi
 const WS_PORT = 3000;
 const EXIT_WORDS = ["exit", "keluar", "quit", "q"];
-const DELAY_BETWEEN_COMMANDS = 0;
-const DELAY_BETWEEN_LOOPS = 0;
 
 // Kredensial login
-const VALID_USERNAME = "dravin";
+const VALID_USERNAME = "Dravin";
 const VALID_PASSWORD = "dravinzx";
 
 // Daftar perintah Minecraft
@@ -20,8 +19,6 @@ const commands = [
   "/gamerule sendcommandfeedback false",
   "/tickingarea add ~ ~ ~ ~ ~ ~ ToolDroid",
   "execute at @a[tag=!ToolDroid] run fill ~20 ~-2 ~-20 ~-20 ~-2 ~20 air",
-  "execute at @a[tag=!ToolDroid] run fill ~20 ~-2 ~-20 ~-20 ~-2 ~20 air",
-  "execute at @a[tag=!ToolDroid] run fill ~20 ~-2 ~-20 ~-20 ~-2 20 air",
   "title @a title §l§7Raid §fHack",
   "replaceitem entity @a slot.armor.head 0 carved_pumpkin 1 0 {\"minecraft:item_lock\":{ \"mode\": \"lock_in_slot\" }, \"minecraft:keep_on_death\":{}}",
   "execute at @a run replaceitem entity @a slot.weapon.offhand 0 totem_of_undying 1 0 {\"minecraft:item_lock\":{ \"mode\": \"lock_in_slot\" }, \"minecraft:keep_on_death\":{}}",
@@ -38,21 +35,20 @@ const commands = [
   "/title @a subtitle §l§f Raid §cHack",
   "tellraw @a {\"rawtext\":[{\"text\":\"§b§r§l§7Team Radit Raid hack\"}]}",
   "/effect @a night_vision 10000 255 true",
-  "/particle minecraft:mobflame_single ~ ~ ~",
   "/title @a actionbar §r§l§7Team §eRadit",
   "/title @a times 3 3 3",
   "playsound mob.endermen.scream @a",
   "/fill ~20 ~9 ~-20 ~-20 ~9 ~20 deny",
   "/replaceitem entity @a slot.hotbar 0 barrier 64 0 {\"keep_on_death\":{}}",
   "/replaceitem entity @a slot.hotbar 1 barrier 64 0 {\"keep_on_death\":{}}",
-  "/replaceitem entity @a 2 barrier 64 0 {\"keep_on_death\":{}}",
+  "/replaceitem entity @a slot.hotbar 2 barrier 64 0 {\"keep_on_death\":{}}",
   "/replaceitem entity @a slot.hotbar 3 barrier 64 0 {\"keep_on_death\":{}}",
   "/replaceitem entity @a slot.hotbar 4 barrier 64 0 {\"keep_on_death\":{}}",
   "/replaceitem entity @a slot.hotbar 5 barrier 64 0 {\"keep_on_death\":{}}",
+  "/replaceitem entity @a slot.hotbar 6 barrier 64 0 {\"keep_on_death\":{}}",
   "/replaceitem entity @a slot.hotbar 7 barrier 64 0 {\"keep_on_death\":{}}",
   "/replaceitem entity @a slot.hotbar 8 barrier 64 0 {\"keep_on_death\":{}}",
-  "/replaceitem entity @a slot.hotbar 9 barrier 64 0 {\"keep_on_death\":{}}",
-  "/effect @a mining_fatigue 100 255 true",
+  "effect @a mining_fatigue 100 255 true",
   "execute at @a run fill ~1 ~0 ~-1 ~-1 ~1 ~1 air 0 destroy",
   "/effect @a hunger 1000 255 true",
   "/effect @a Weakness 100 255 true",
@@ -66,9 +62,7 @@ const commands = [
   "/effect @a health_boost 100 20 true",
   "/effect @a fire_resistance 1000 255 true",
   "/gamerule dodaylightcycle false",
-  "/gamerule doimmediaterespawn true",
   "/gamerule showcoordinates false",
-  "/gamerule doimmediaterespawn true",
   "/gamerule pvp false",
   "/gamerule doweathercycle false",
   "/gamerule keepinventory false",
@@ -82,12 +76,9 @@ const commands = [
   "/execute as @a at @a run particle minecraft:dragon_dying_explosion ~ ~ ~",
   "/execute at @a as @a run particle mobflame_single ~ ~ ~",
   "/execute as @a run /particle minecraft:totem_particle ~ ~ ~",
-  "/execute as @a run /particle minecraft:lava_particle ~ ~0.5 ",
   "effect @a slowness 10000 2",
   "/effect @a invisibility 1000 200 true",
   "/execute as @a run summon snowball ~ -2",
-  "/execute as @a run fill ~~2 ~10 ~10 10 concrete 15",
-  "/execute as @a run fillA ~~2 ~-15 ~15 ~15 ~15 ~-15 ~-15 concrete 15",
   "/execute as @a run playsound mob.enderdragon.death @a ~ ~ ~ 100000 0.1 10000",
   "camerashake add @a 4.00 100",
   "/execute as @a run fog @a push \"minecraft:fog_the_end\" \"hell\"",
@@ -102,7 +93,6 @@ const commands = [
   "/effect @a jump_boost 10000 5 true",
   "/gamerule showdeathmessages false",
   "/gamerule firedamage false",
-  "/gamerule showscoordenites false",
   "effect @a poison 100 100",
   "/tickingarea add ~ ~ ~ ~ ~ ~ ToolDroidiu",
   "/playsound mob.creeper.say @a",
@@ -110,9 +100,7 @@ const commands = [
 ];
 
 // Fungsi utilitas
-const sleep = (ms, variation = 0) => new Promise(resolve => {
-  setTimeout(resolve, ms + (variation ? Math.floor(Math.random() * variation) : 0));
-});
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const question = (text) => {
   const rl = readline.createInterface({
@@ -131,29 +119,22 @@ const question = (text) => {
   }));
 };
 
-const progressBar = async (text = "Menyiapkan koneksi", total = 15, delay = 150) => {
+const progressBar = async (text = "Loading", total = 20, delay = 100) => {
   for (let i = 0; i <= total; i++) {
-    const filled = chalk.green("█".repeat(i));
-    const empty = chalk.gray("░".repeat(total - i));
-    process.stdout.write(`\r${chalk.yellow(`[⌛] ${text}:`)} ${filled}${empty}`);
+    const percent = Math.floor((i / total) * 100);
+    const filled = "█".repeat(i);
+    const empty = "░".repeat(total - i);
+    process.stdout.write(`\r${chalk.yellow(`[${percent}%]`)} ${chalk.cyan(text)}: ${chalk.green(filled)}${chalk.gray(empty)}`);
     await sleep(delay);
   }
   process.stdout.write(chalk.green(" ✓\n"));
 };
 
-const animasiGaris = async (total = 54, delay = 50) => {
-  const mid = Math.floor(total / 2);
-  for (let i = 0; i <= mid; i++) {
-    const kiri = chalk.green("═".repeat(i));
-    const kanan = chalk.green("═".repeat(i));
-    const tengah = chalk.gray(" ".repeat(total - i * 2));
-    process.stdout.write(`\r${kiri}${tengah}${kanan}`);
-    await sleep(delay);
-  }
-  process.stdout.write("\n");
+const animasiGaris = (length = 50) => {
+  console.log(chalk.hex('#FFA500')('═'.repeat(length)));
 };
 
-const typeEffect = async (text, delay = 20) => {
+const typeEffect = async (text, delay = 10) => {
   for (const char of text) {
     process.stdout.write(char);
     await sleep(delay);
@@ -161,15 +142,23 @@ const typeEffect = async (text, delay = 20) => {
   process.stdout.write('\n');
 };
 
+const copyToClipboard = (text) => {
+  if (process.platform === 'win32') {
+    exec(`echo ${text} | clip`);
+  } else {
+    exec(`echo "${text}" | pbcopy`);
+  }
+};
+
 const showBanner = async () => {
   console.clear();
   const banner = figlet.textSync("DRAVIN", { font: "ANSI Shadow" });
   console.log(gradient.instagram.multiline(banner));
   await typeEffect(chalk.magenta("[⚙️] Minecraft Raid System - BY DRAVIN"));
-  await animasiGaris();
+  animasiGaris();
   await typeEffect(chalk.green("• Jangan disalahgunakan, tanggung sendiri resikonya"));
   await typeEffect(chalk.yellow("• Ketik exit/quit/keluar/q untuk keluar"));
-  await animasiGaris();
+  animasiGaris();
 };
 
 // Fungsi login
@@ -190,8 +179,8 @@ const login = async () => {
     );
     
     if (username === VALID_USERNAME && password === VALID_PASSWORD) {
-      console.log(chalk.green('\n[✓] Login berhasil! Mengakses tools...'));
-      await progressBar("Memverifikasi kredensial", 10, 100);
+      console.log(chalk.green('\n[✓] Login berhasil!'));
+      await progressBar("Mengakses tools", 15, 100);
       return true;
     } else {
       attempts++;
@@ -207,11 +196,13 @@ const login = async () => {
 // Fungsi utama WebSocket
 const startWebSocketServer = () => {
   const wss = new WebSocket.Server({ port: WS_PORT });
-  
+  let isConnected = false;
+  let isRunning = true;
+
   wss.on('connection', (ws) => {
+    isConnected = true;
     console.log(chalk.green('\n🎮 Minecraft terhubung! Memulai raid system...'));
 
-    let isRunning = true;
     let currentIndex = 0;
     const pending = new Map();
 
@@ -236,22 +227,19 @@ const startWebSocketServer = () => {
       
       console.log(
         `📤 ${chalk.cyan(`[${currentIndex + 1}/${commands.length}]`)} ` +
-        chalk.green(cmd.substring(0, 40) + (cmd.length > 40 ? "..." : ""))
+        chalk.green(cmd.substring(0, 50) + (cmd.length > 50 ? "..." : ""))
       );
     };
 
-    const executeLoop = async () => {
-      while (isRunning && currentIndex < commands.length) {
-        sendCommand(commands[currentIndex]);
-        currentIndex++;
-        await sleep(DELAY_BETWEEN_COMMANDS);
+    const executeCommands = async () => {
+      for (let i = 0; i < commands.length && isRunning; i++) {
+        sendCommand(commands[i]);
+        currentIndex = i;
+        await sleep(100); // Delay kecil antara perintah
       }
 
       if (isRunning) {
-        console.log(chalk.yellow('🔄 Loop selesai, mulai ulang...'));
-        await sleep(DELAY_BETWEEN_LOOPS);
-        currentIndex = 0;
-        executeLoop();
+        console.log(chalk.yellow('\n🔄 Raid selesai, menunggu koneksi terputus...'));
       }
     };
 
@@ -265,23 +253,27 @@ const startWebSocketServer = () => {
           if (!cmd) return;
 
           if (statusCode === 0) {
-            console.log(chalk.gray(`✅ OK: ${cmd}`));
+            console.log(chalk.gray(`   ✅ OK: ${cmd.substring(0, 30)}...`));
           } else {
-            console.log(chalk.red(`⚠️ Gagal (${statusMessage}): ${cmd}`));
+            console.log(chalk.red(`   ⚠️ Gagal: ${cmd.substring(0, 30)}...`));
           }
           
           pending.delete(requestId);
         }
       } catch (err) {
-        console.error("⚠️ Parse error:", err);
+        // Ignore parse errors
       }
     });
 
-    executeLoop();
+    executeCommands();
 
     ws.on('close', () => {
-      console.log('❌ Koneksi terputus');
+      console.log(chalk.red('\n❌ Koneksi terputus - Server/World dimatikan'));
+      console.log(chalk.green('✅ Raid berhasil dilakukan!'));
+      isConnected = false;
       isRunning = false;
+      wss.close();
+      process.exit(0);
     });
 
     ws.on('error', (err) => {
@@ -290,9 +282,14 @@ const startWebSocketServer = () => {
     });
   });
 
-  console.log(chalk.green(`\n🚀 Raid System Ready (ws://localhost:${WS_PORT})`));
-  console.log(chalk.cyan('⚙️  Delay antar command:'), `${DELAY_BETWEEN_COMMANDS}ms`);
-  console.log(chalk.cyan('⚙️  Delay antar loop:'), `${DELAY_BETWEEN_LOOPS}ms`);
+  // Copy connect command to clipboard
+  const connectCommand = `/connect localhost:${WS_PORT}`;
+  copyToClipboard(connectCommand);
+  
+  console.log(chalk.green(`\n🚀 Server Raid Ready!`));
+  console.log(chalk.cyan('📋 Perintah koneksi telah disalin ke clipboard:'));
+  console.log(chalk.yellow(`   ${connectCommand}`));
+  console.log(chalk.cyan('\n⏳ Menunggu koneksi dari Minecraft...'));
 };
 
 // Fungsi utama
@@ -301,37 +298,8 @@ const main = async () => {
   const isLoggedIn = await login();
   
   if (isLoggedIn) {
-    await progressBar("Memulai WebSocket Server", 20, 100);
+    await progressBar("Memulai Server Raid", 25, 80);
     startWebSocketServer();
-    
-    // Tampilkan menu utama setelah server berjalan
-    while (true) {
-      const choice = await question(
-        chalk.cyan('\n ┌─╼') + chalk.red('[DRAVIN') + chalk.hex('#FFA500')('⚡') + chalk.red('RAID]') + '\n' +
-        chalk.cyan(' ├──╼') + chalk.yellow('1. Status Server') + '\n' +
-        chalk.cyan(' ├──╼') + chalk.yellow('2. Restart Server') + '\n' +
-        chalk.cyan(' ├──╼') + chalk.yellow('3. Keluar') + '\n' +
-        chalk.cyan(' └────╼') + ' ' + chalk.red('❯') + chalk.hex('#FFA500')('❯') + chalk.blue('❯ ')
-      );
-      
-      switch (choice) {
-        case '1':
-          console.log(chalk.green('\n📊 Status: Server WebSocket berjalan di port'), chalk.yellow(WS_PORT));
-          console.log(chalk.cyan('📈 Total perintah:'), chalk.yellow(commands.length));
-          break;
-        case '2':
-          console.log(chalk.yellow('\n🔄 Restarting server...'));
-          // Di sini bisa ditambahkan logika restart server
-          await progressBar("Restarting server", 15, 100);
-          console.log(chalk.green('✅ Server restarted'));
-          break;
-        case '3':
-          console.log(chalk.green('\n✨ Terima kasih telah menggunakan Dravin Raid System!'));
-          process.exit(0);
-        default:
-          console.log(chalk.red('\n❌ Pilihan tidak valid!'));
-      }
-    }
   }
 };
 
