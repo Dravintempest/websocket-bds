@@ -114,6 +114,8 @@ const question = (text, hidden = false) => {
     if (hidden) {
       // Untuk input password yang tersembunyi
       const stdin = process.openStdin();
+      let input = '';
+      
       process.stdin.on("data", (char) => {
         switch (char.toString()) {
           case "\n":
@@ -122,9 +124,10 @@ const question = (text, hidden = false) => {
             stdin.pause();
             break;
           default:
+            input += char.toString();
             process.stdout.clearLine();
             readline.cursorTo(process.stdout, 0);
-            process.stdout.write(text + Array(rl.line.length + 1).join("*"));
+            process.stdout.write(text + Array(input.length + 1).join("*"));
             break;
         }
       });
@@ -190,7 +193,7 @@ const copyToClipboard = (text) => {
         else resolve();
       });
     } else {
-      exec(`echo "${text}" | xclip -selection clipboard`, (err) => {
+      exec(`echo "${text}" | xclip -selection clipboard 2>/dev/null || echo "${text}" | xsel --clipboard --input 2>/dev/null`, (err) => {
         if (err) reject(err);
         else resolve();
       });
@@ -199,36 +202,60 @@ const copyToClipboard = (text) => {
 };
 
 const getLocalIP = () => {
-  const interfaces = os.networkInterfaces();
-  for (const devName in interfaces) {
-    const iface = interfaces[devName];
-    for (let i = 0; i < iface.length; i++) {
-      const alias = iface[i];
-      if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
-        return alias.address;
+  try {
+    const interfaces = os.networkInterfaces();
+    for (const devName in interfaces) {
+      const iface = interfaces[devName];
+      for (let i = 0; i < iface.length; i++) {
+        const alias = iface[i];
+        if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
+          return alias.address;
+        }
       }
     }
+    return 'localhost';
+  } catch (error) {
+    return 'localhost';
   }
-  return 'localhost';
+};
+
+const getCPUInfo = () => {
+  try {
+    const cpus = os.cpus();
+    if (cpus && cpus.length > 0) {
+      return cpus[0].model;
+    }
+    return 'Unknown CPU';
+  } catch (error) {
+    return 'Unknown CPU';
+  }
 };
 
 const showBanner = async () => {
   console.clear();
   
   // Animasi banner
-  const bannerText = "DRAVIN";
+  const bannerText = "DRAVIN ZX";
   const fonts = ["ANSI Shadow", "Big", "Blocks", "Ogre"];
   
   for (const font of fonts) {
     console.clear();
-    const banner = figlet.textSync(bannerText, { font });
-    console.log(gradient.rainbow.multiline(banner));
+    try {
+      const banner = figlet.textSync(bannerText, { font });
+      console.log(gradient.rainbow.multiline(banner));
+    } catch (err) {
+      console.log(gradient.rainbow(bannerText));
+    }
     await sleep(200);
   }
   
   console.clear();
-  const finalBanner = figlet.textSync(bannerText, { font: "ANSI Shadow" });
-  console.log(gradient.instagram.multiline(finalBanner));
+  try {
+    const finalBanner = figlet.textSync(bannerText, { font: "ANSI Shadow" });
+    console.log(gradient.instagram.multiline(finalBanner));
+  } catch (err) {
+    console.log(gradient.instagram(bannerText));
+  }
   
   await typeEffect(chalk.magenta(`[⚙️] Minecraft Raid System v${VERSION} - BY DRAVIN`), 15);
   animasiGaris();
@@ -238,7 +265,8 @@ const showBanner = async () => {
   animasiGaris();
   
   // Tampilkan info sistem
-  console.log(chalk.blue(`\n💻 Sistem: ${os.type()} ${os.release()} | 🖥️  CPU: ${os.cpus()[0].model}`));
+  console.log(chalk.blue(`\n💻 Sistem: ${os.type()} ${os.release()}`));
+  console.log(chalk.blue(`🖥️  CPU: ${getCPUInfo()}`));
   console.log(chalk.blue(`🌐 Alamat IP: ${getLocalIP()}:${WS_PORT}`));
 };
 
