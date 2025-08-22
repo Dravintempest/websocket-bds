@@ -4,10 +4,12 @@ const figlet = require("figlet");
 const gradient = require("gradient-string");
 const readline = require("readline");
 const { exec } = require('child_process');
+const os = require('os');
 
 // Konfigurasi
 const WS_PORT = 3000;
 const EXIT_WORDS = ["exit", "keluar", "quit", "q"];
+const VERSION = "2.0.0";
 
 // Kredensial login
 const VALID_USERNAME = "Dravin";
@@ -102,26 +104,63 @@ const commands = [
 // Fungsi utilitas
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const question = (text) => {
+const question = (text, hidden = false) => {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
   });
-  return new Promise(resolve => rl.question(text, ans => {
-    const val = ans.trim().toLowerCase();
-    if (EXIT_WORDS.includes(val)) {
-      console.log(chalk.red("\n[!] Keluar dari tools..."));
-      rl.close();
-      process.exit(0);
+  
+  return new Promise(resolve => {
+    if (hidden) {
+      // Untuk input password yang tersembunyi
+      const stdin = process.openStdin();
+      process.stdin.on("data", (char) => {
+        switch (char.toString()) {
+          case "\n":
+          case "\r":
+          case "\u0004":
+            stdin.pause();
+            break;
+          default:
+            process.stdout.clearLine();
+            readline.cursorTo(process.stdout, 0);
+            process.stdout.write(text + Array(rl.line.length + 1).join("*"));
+            break;
+        }
+      });
+      
+      rl.question(text, (ans) => {
+        const val = ans.trim().toLowerCase();
+        if (EXIT_WORDS.includes(val)) {
+          console.log(chalk.red("\n[!] Keluar dari tools..."));
+          rl.close();
+          process.exit(0);
+        }
+        rl.close();
+        resolve(ans);
+      });
+    } else {
+      rl.question(text, (ans) => {
+        const val = ans.trim().toLowerCase();
+        if (EXIT_WORDS.includes(val)) {
+          console.log(chalk.red("\n[!] Keluar dari tools..."));
+          rl.close();
+          process.exit(0);
+        }
+        rl.close();
+        resolve(ans);
+      });
     }
-    rl.close();
-    resolve(ans);
-  }));
+  });
 };
 
 const progressBar = async (text = "Loading", total = 20, delay = 100) => {
-  process.stdout.write(chalk.hex('#FFA500')(`\r[⌛] ${chalk.cyan(text)}...`));
-  await sleep(total * delay);
+  for (let i = 0; i <= total; i++) {
+    const percent = Math.round((i / total) * 100);
+    const bar = "█".repeat(i) + "░".repeat(total - i);
+    process.stdout.write(`\r${chalk.hex('#FFA500')(`[⌛]`)} ${chalk.cyan(text)} [${bar}] ${percent}%`);
+    await sleep(delay);
+  }
   process.stdout.write(chalk.green(" ✓\n"));
 };
 
@@ -129,7 +168,8 @@ const animasiGaris = (length = 50) => {
   console.log(chalk.hex('#FFA500')('═'.repeat(length)));
 };
 
-const typeEffect = async (text, delay = 10) => {
+const typeEffect = async (text, delay = 10, color = 'magenta') => {
+  process.stdout.write(chalk[color](''));
   for (const char of text) {
     process.stdout.write(char);
     await sleep(delay);
@@ -138,22 +178,68 @@ const typeEffect = async (text, delay = 10) => {
 };
 
 const copyToClipboard = (text) => {
-  if (process.platform === 'win32') {
-    exec(`echo ${text} | clip`);
-  } else {
-    exec(`echo "${text}" | pbcopy`);
+  return new Promise((resolve, reject) => {
+    if (process.platform === 'win32') {
+      exec(`echo ${text} | clip`, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    } else if (process.platform === 'darwin') {
+      exec(`echo "${text}" | pbcopy`, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    } else {
+      exec(`echo "${text}" | xclip -selection clipboard`, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    }
+  });
+};
+
+const getLocalIP = () => {
+  const interfaces = os.networkInterfaces();
+  for (const devName in interfaces) {
+    const iface = interfaces[devName];
+    for (let i = 0; i < iface.length; i++) {
+      const alias = iface[i];
+      if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
+        return alias.address;
+      }
+    }
   }
+  return 'localhost';
 };
 
 const showBanner = async () => {
   console.clear();
-  const banner = figlet.textSync("DRAVIN", { font: "ANSI Shadow" });
-  console.log(gradient.instagram.multiline(banner));
-  await typeEffect(chalk.magenta("[⚙️] Minecraft Raid System - BY DRAVIN"));
+  
+  // Animasi banner
+  const bannerText = "DRAVIN";
+  const fonts = ["ANSI Shadow", "Big", "Blocks", "Ogre"];
+  
+  for (const font of fonts) {
+    console.clear();
+    const banner = figlet.textSync(bannerText, { font });
+    console.log(gradient.rainbow.multiline(banner));
+    await sleep(200);
+  }
+  
+  console.clear();
+  const finalBanner = figlet.textSync(bannerText, { font: "ANSI Shadow" });
+  console.log(gradient.instagram.multiline(finalBanner));
+  
+  await typeEffect(chalk.magenta(`[⚙️] Minecraft Raid System v${VERSION} - BY DRAVIN`), 15);
   animasiGaris();
-  await typeEffect(chalk.green("• Jangan disalahgunakan, tanggung sendiri resikonya"));
-  await typeEffect(chalk.yellow("• Ketik exit/quit/keluar/q untuk keluar"));
+  await typeEffect(chalk.green("• Jangan disalahgunakan, tanggung sendiri resikonya"), 5);
+  await typeEffect(chalk.yellow("• Ketik exit/quit/keluar/q untuk keluar"), 5);
+  await typeEffect(chalk.cyan("• Pastikan Minecraft Bedrock Edition terbuka"), 5);
   animasiGaris();
+  
+  // Tampilkan info sistem
+  console.log(chalk.blue(`\n💻 Sistem: ${os.type()} ${os.release()} | 🖥️  CPU: ${os.cpus()[0].model}`));
+  console.log(chalk.blue(`🌐 Alamat IP: ${getLocalIP()}:${WS_PORT}`));
 };
 
 // Fungsi login
@@ -170,7 +256,8 @@ const login = async () => {
     );
     
     const password = await question(
-      chalk.cyan(' └──╼') + chalk.yellow('Password: ') + chalk.red('❯') + chalk.hex('#FFA500')('❯') + chalk.blue('❯ ')
+      chalk.cyan(' └──╼') + chalk.yellow('Password: ') + chalk.red('❯') + chalk.hex('#FFA500')('❯') + chalk.blue('❯ '),
+      true
     );
     
     if (username === VALID_USERNAME && password === VALID_PASSWORD) {
@@ -182,6 +269,7 @@ const login = async () => {
       console.log(chalk.red(`\n[✗] Login gagal! Percobaan ${attempts}/${maxAttempts}`));
       if (attempts >= maxAttempts) {
         console.log(chalk.red('[!] Terlalu banyak percobaan gagal. Keluar...'));
+        await progressBar("Membersihkan sistem", 10, 150);
         process.exit(1);
       }
     }
@@ -193,10 +281,13 @@ const startWebSocketServer = () => {
   const wss = new WebSocket.Server({ port: WS_PORT });
   let isConnected = false;
   let isRunning = true;
+  let successCount = 0;
+  let failCount = 0;
 
   wss.on('connection', (ws) => {
     isConnected = true;
     console.log(chalk.green('\n🎮 Minecraft terhubung! Memulai raid system...'));
+    console.log(chalk.cyan(`📊 Total perintah yang akan dieksekusi: ${commands.length}`));
 
     let currentIndex = 0;
     const pending = new Map();
@@ -247,7 +338,8 @@ const startWebSocketServer = () => {
       }
 
       if (isRunning) {
-        console.log(chalk.yellow('\n✅ Raid selesai! Server/world masih aktif.'));
+        console.log(chalk.yellow('\n✅ Semua perintah telah dikirim!'));
+        console.log(chalk.green(`✓ Berhasil: ${successCount} | ✗ Gagal: ${failCount}`));
         console.log(chalk.cyan('⏳ Menunggu server/world dimatikan...'));
       }
     };
@@ -263,8 +355,10 @@ const startWebSocketServer = () => {
 
           if (statusCode === 0) {
             console.log(chalk.gray(`   ✅ OK: ${cmd.substring(0, 30)}...`));
+            successCount++;
           } else {
             console.log(chalk.red(`   ⚠️ Gagal: ${cmd.substring(0, 30)}...`));
+            failCount++;
           }
           
           pending.delete(requestId);
@@ -279,9 +373,14 @@ const startWebSocketServer = () => {
     ws.on('close', () => {
       console.log(chalk.red('\n❌ Koneksi terputus - Server/World dimatikan'));
       console.log(chalk.green('🎉 Raid berhasil dilakukan!'));
+      console.log(chalk.green(`📊 Statistik: ${successCount} berhasil, ${failCount} gagal`));
       isConnected = false;
       isRunning = false;
+      
+      // Tampilkan pesan penutup
       setTimeout(() => {
+        console.log(chalk.cyan('\n✨ Terima kasih telah menggunakan tools ini!'));
+        console.log(chalk.yellow('👋 Sampai jumpa lagi...'));
         wss.close();
         process.exit(0);
       }, 2000);
@@ -294,17 +393,22 @@ const startWebSocketServer = () => {
   });
 
   // Copy connect command to clipboard
-  const connectCommand = `/connect localhost:${WS_PORT}`;
-  copyToClipboard(connectCommand);
-  
-  console.log(chalk.green(`\n🚀 Server Raid Ready!`));
-  console.log(chalk.cyan('📋 Perintah koneksi telah disalin ke clipboard:'));
-  console.log(chalk.yellow(`   ${connectCommand}`));
-  console.log(chalk.cyan('\n⏳ Menunggu koneksi dari Minecraft...'));
+  const connectCommand = `/connect ${getLocalIP()}:${WS_PORT}`;
+  copyToClipboard(connectCommand).then(() => {
+    console.log(chalk.green(`\n🚀 Server Raid Ready!`));
+    console.log(chalk.cyan('📋 Perintah koneksi telah disalin ke clipboard:'));
+    console.log(chalk.yellow(`   ${connectCommand}`));
+    console.log(chalk.cyan('\n⏳ Menunggu koneksi dari Minecraft...'));
+  }).catch(err => {
+    console.log(chalk.yellow('\n⚠️ Tidak bisa menyalin ke clipboard, salin manual:'));
+    console.log(chalk.yellow(`   ${connectCommand}`));
+  });
   
   // Handle server shutdown
   process.on('SIGINT', () => {
     console.log(chalk.red('\n\n⚠️  Server dihentikan manual'));
+    console.log(chalk.yellow('🛑 Menghentikan proses raid...'));
+    isRunning = false;
     wss.close();
     process.exit(0);
   });
@@ -312,17 +416,20 @@ const startWebSocketServer = () => {
 
 // Fungsi utama
 const main = async () => {
-  await showBanner();
-  const isLoggedIn = await login();
-  
-  if (isLoggedIn) {
-    await progressBar("Memulai Server Raid", 20);
-    startWebSocketServer();
+  try {
+    await showBanner();
+    const isLoggedIn = await login();
+    
+    if (isLoggedIn) {
+      await progressBar("Memulai Server Raid", 20);
+      startWebSocketServer();
+    }
+  } catch (error) {
+    console.error(chalk.red('\n💥 Terjadi error:'), error.message);
+    console.log(chalk.yellow('🔄 Restart aplikasi jika masalah berlanjut'));
+    process.exit(1);
   }
 };
 
 // Jalankan aplikasi
-main().catch(err => {
-  console.error(chalk.red('Terjadi error:'), err);
-  process.exit(1);
-});
+main();
